@@ -17,3 +17,6 @@ htmlcov/
 .DS_Store
 Thumbs.db
 uv.lock
+
+!data/samples/*.bin
+
