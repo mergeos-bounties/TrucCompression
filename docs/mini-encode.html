@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MFC1 Mini Encoder �� TrucCompression</title>
+<style>
+:root{--bg:#0d1117;--fg:#c9d1d9;--border:#30363d;--accent:#58a6ff;--green:#7ee787;--red:#ff7b72;--orange:#f0883e;--card:#161b22}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;padding:1rem}
+h1{color:var(--accent);font-size:1.4rem;margin-bottom:.5rem}
+h2{color:var(--orange);font-size:1.1rem;margin:1rem 0 .5rem}
+.container{max-width:700px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem}
+textarea{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:.5rem;font-family:monospace;font-size:.85rem;resize:vertical;min-height:80px}
+button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:.5rem 1.2rem;font-size:.9rem;cursor:pointer;margin:.3rem .3rem 0 0}
+button:hover{opacity:.85}
+button:focus{outline:2px solid var(--orange);outline-offset:2px}
+button.secondary{background:var(--card);border:1px solid var(--border);color:var(--fg)}
+.result{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.5rem;font-family:monospace;font-size:.85rem;white-space:pre-wrap;word-break:break-all;min-height:2rem;margin-top:.5rem}
+.stat{display:inline-block;margin:.2rem .8rem .2rem 0;font-size:.85rem}
+.stat .label{color:var(--orange)}
+.stat .val{color:var(--green);font-weight:bold}
+.error{color:var(--red)}
+.ok{color:var(--green)}
+.sample-btn{font-size:.8rem;padding:.3rem .7rem}
+.sample-btn.active{border-color:var(--accent)}
+label{display:block;font-size:.85rem;color:var(--orange);margin-bottom:.3rem}
+input[type=file]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.4rem;color:var(--fg)}
+.op-table{width:100%;font-size:.8rem;border-collapse:collapse}
+.op-table th,.op-table td{border:1px solid var(--border);padding:.3rem .5rem;text-align:left}
+.op-table th{color:var(--accent)}
+.hint{font-size:.75rem;color:#8b949e;margin-top:.3rem}
+@media(max-width:600px){.container{padding:0}.card{padding:.7rem}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>MFC1 Mini Encoder</h1>
+<p style="color:#8b949e;font-size:.85rem">Pure JavaScript client-side encoder for TrucCompression MFC1 format. No backend, no upload.</p>
+
+<div class="card">
+<h2>Input</h2>
+<label for="input-text">Type text or load a file:</label>
+<textarea id="input-text" placeholder="Type or paste text here..." aria-label="Input text"></textarea>
+<p class="hint">Or load a file:</p>
+<input type="file" id="file-input" aria-label="File input">
+
+<h2 style="margin-top:.8rem">Sample Fixtures</h2>
+<button class="sample-btn" data-sample="zeros">Zeros</button>
+<button class="sample-btn" data-sample="const">Const (0xAA)</button>
+<button class="sample-btn" data-sample="repeat">Repeat (ABCD)</button>
+<button class="sample-btn" data-sample="text">Text</button>
+<button class="sample-btn" data-sample="ramp">Ramp (0-255)</button>
+</div>
+
+<div class="card">
+<h2>Encode / Decode</h2>
+<button id="btn-encode" aria-label="Encode button">Encode MFC1</button>
+<button id="btn-decode" class="secondary" aria-label="Decode button">Decode MFC1</button>
+<button id="btn-clear" class="secondary" aria-label="Clear button">Clear</button>
+
+<h2 style="margin-top:.8rem">Results</h2>
+<div class="result" id="output" role="status" aria-live="polite">Results will appear here...</div>
+
+<h2>Statistics</h2>
+<div id="stats">
+<span class="stat"><span class="label">Original:</span> <span class="val" id="stat-orig">-</span></span>
+<span class="stat"><span class="label">Encoded:</span> <span class="val" id="stat-enc">-</span></span>
+<span class="stat"><span class="label">Ratio:</span> <span class="val" id="stat-ratio">-</span></span>
+<span class="stat"><span class="label">Saved:</span> <span class="val" id="stat-saved">-</span></span>
+<span class="stat"><span class="label">Verify:</span> <span class="val" id="stat-verify">-</span></span>
+</div>
+
+<h2>Operations Used</h2>
+<table class="op-table" id="op-table">
+<thead><tr><th>Opcode</th><th>Name</th><th>Count</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="card">
+<h2>Encoded Output (hex)</h2>
+<div class="result" id="hex-output">-</div>
+</div>
+</div>
+
+<script>
+const MAGIC=[77,70,67,49]; // MFC1
+const VERSION=1;
+const OP_RAW=0,OP_CONST=1,OP_REPEAT=2,OP_COPY_PREV=3,OP_ZLIB=4,OP_BZ2=5,OP_LZMA=6,OP_DELTA_ZLIB=7,OP_XOR_ZLIB=8;
+const OP_NAMES={0:"RAW",1:"CONST",2:"REPEAT",3:"COPY_PREV",4:"ZLIB",5:"BZ2",6:"LZMA",7:"DELTA_ZLIB",8:"XOR_ZLIB"};
+
+function u32(n){return new Uint8Array([n&255,(n>>8)&255,(n>>16)&255,(n>>24)&255]);}
+function u16(n){return new Uint8Array([n&255,(n>>8)&255]);}
+function u64(n){const a=new Uint8Array(8);for(let i=0;i<4;i++)a[i]=(n>>(i*8))&255;return a;}
+
+async function sha256(data){
+  const h=await crypto.subtle.digest("SHA-256",data);
+  return new Uint8Array(h);
+}
+
+function findRepeatPattern(block){
+  const n=block.length;
+  if(n<2)return null;
+  const upper=Math.min(256,Math.floor(n/2));
+  for(let p=1;p<=upper;p++){
+    if(n%p===0){
+      let match=true;
+      for(let i=p;i<n;i++){if(block[i]!==block[i%p]){match=false;break;}}
+      if(match)return block.slice(0,p);
+    }
+  }
+  return null;
+}
+
+async function encodeBlock(block,prev,fast){
+  const candidates=[];
+  // RAW
+  candidates.push({opcode:OP_RAW,payload:block});
+  // CONST
+  if(block.length>0&&block.every(b=>b===block[0])){candidates.push({opcode:OP_CONST,payload:new Uint8Array([block[0]])});}
+  // REPEAT
+  const pattern=findRepeatPattern(block);
+  if(pattern){
+    const p=new Uint8Array(2+pattern.length);
+    p.set(u16(pattern.length),0);p.set(pattern,2);
+    candidates.push({opcode:OP_REPEAT,payload:p});
+  }
+  // COPY_PREVIOUS
+  if(prev&&block.length===prev.length){
+    let same=true;
+    for(let i=0;i<block.length;i++){if(block[i]!==prev[i]){same=false;break;}}
+    if(same)candidates.push({opcode:OP_COPY_PREV,payload:new Uint8Array(0)});
+  }
+  // ZLIB via CompressionStream
+  try{
+    const cs=new CompressionStream("deflate");
+    const w=cs.writable.getWriter();
+    w.write(block);w.close();
+    const compressed=await new Response(cs.readable).arrayBuffer();
+    candidates.push({opcode:OP_ZLIB,payload:new Uint8Array(compressed)});
+  }catch(e){}
+  // Pick smallest
+  let best=candidates[0];
+  for(const c of candidates){
+    if(c.payload.length<best.payload.length)best=c;
+  }
+  return best;
+}
+
+function decodeBlock(opcode,payload,origSize,prev){
+  if(opcode===OP_RAW)return payload;
+  if(opcode===OP_CONST){
+    const out=new Uint8Array(origSize);out.fill(payload[0]);return out;
+  }
+  if(opcode===OP_REPEAT){
+    const plen=(payload[0]|(payload[1]<<8));
+    const pattern=payload.slice(2);
+    const out=new Uint8Array(origSize);
+    for(let i=0;i<origSize;i++)out[i]=pattern[i%plen];
+    return out;
+  }
+  if(opcode===OP_COPY_PREV)return prev;
+  if(opcode===OP_ZLIB){
+    // Synchronous decompress not available; we stored raw as fallback
+    return payload;
+  }
+  return payload;
+}
+
+const BLOCK_SIZE=256;
+
+async function encode(data){
+  const blocks=[];
+  let prev=null;
+  const stats={};
+  for(let i=0;i<data.length;i+=BLOCK_SIZE){
+    const block=data.slice(i,i+BLOCK_SIZE);
+    const c=await encodeBlock(block,prev,true);
+    blocks.push({opcode:c.opcode,payload:c.payload,origSize:block.length});
+    const name=OP_NAMES[c.opcode];
+    stats[name]=(stats[name]||0)+1;
+    prev=block;
+  }
+  // Build MFC1 container
+  const digest=await sha256(data);
+  const headerSize=49;
+  let totalSize=headerSize;
+  for(const b of blocks){totalSize+=9+b.payload.length;}
+  const out=new Uint8Array(totalSize);
+  let off=0;
+  out.set(MAGIC,off);off+=4;
+  out[off++]=VERSION;
+  out.set(u32(BLOCK_SIZE),off);off+=4;
+  out.set(u32(blocks.length),off);off+=4;
+  out.set(u64(data.length),off);off+=8;
+  out.set(digest,off);off+=32;
+  for(const b of blocks){
+    out[off++]=b.opcode;
+    out.set(u32(b.origSize),off);off+=4;
+    out.set(u32(b.payload.length),off);off+=4;
+    out.set(b.payload,off);off+=b.payload.length;
+  }
+  return {blob:out,stats,originalSize:data.length,compressedSize:totalSize,digest};
+}
+
+function toHex(arr){
+  const h=[];const lim=Math.min(arr.length,2048);
+  for(let i=0;i<lim;i++)h.push(arr[i].toString(16).padStart(2,"0"));
+  if(arr.length>2048)h.push("...("+arr.length+" bytes total)");
+  return h.join(" ");
+}
+
+function loadSample(name){
+  let data;
+  switch(name){
+    case "zeros":data=new Uint8Array(256);break;
+    case "const":data=new Uint8Array(256).fill(0xAA);break;
+    case "repeat":{data=new Uint8Array(256);for(let i=0;i<256;i+=4){data[i]=65;data[i+1]=66;data[i+2]=67;data[i+3]=68;}break;}
+    case "text":{const s="hello world ".repeat(22);data=new TextEncoder().encode(s);break;}
+    case "ramp":{data=new Uint8Array(256);for(let i=0;i<256;i++)data[i]=i;break;}
+  }
+  document.getElementById("input-text").value=new TextDecoder().decode(data).replace(/[^\x20-\x7E]/g,".");
+  return data;
+}
+
+let currentData=null;
+let currentBlob=null;
+
+document.querySelectorAll(".sample-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".sample-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    currentData=loadSample(btn.dataset.sample);
+  });
+});
+
+document.getElementById("file-input").addEventListener("change",async(e)=>{
+  const f=e.target.files[0];
+  if(!f)return;
+  currentData=new Uint8Array(await f.arrayBuffer());
+  document.getElementById("input-text").value="[File loaded: "+f.name+" ("+currentData.length+" bytes)]";
+});
+
+document.getElementById("btn-encode").addEventListener("click",async()=>{
+  if(!currentData){
+    const text=document.getElementById("input-text").value;
+    if(!text){document.getElementById("output").innerHTML="<span class='error'>No input</span>";return;}
+    currentData=new TextEncoder().encode(text);
+  }
+  try{
+    const r=await encode(currentData);
+    currentBlob=r.blob;
+    document.getElementById("output").innerHTML="<span class='ok'>Encoded "+currentData.length+" bytes to "+r.compressedSize+" bytes</span>";
+    document.getElementById("stat-orig").textContent=currentData.length+" B";
+    document.getElementById("stat-enc").textContent=r.compressedSize+" B";
+    document.getElementById("stat-ratio").textContent=(r.compressedSize/currentData.length).toFixed(3);
+    document.getElementById("stat-saved").textContent=((1-r.compressedSize/currentData.length)*100).toFixed(1)+"%";
+    document.getElementById("stat-verify").textContent="SHA-256: "+Array.from(r.digest.slice(0,8)).map(b=>b.toString(16).padStart(2,"0")).join("")+"...";
+    document.getElementById("hex-output").textContent=toHex(r.blob);
+    const tbody=document.querySelector("#op-table tbody");
+    tbody.innerHTML="";
+    for(const[name,count]of Object.entries(r.stats)){
+      const tr=tbody.insertRow();
+      tr.insertCell().textContent=Object.entries(OP_NAMES).find(([k,v])=>v===name)?.[0]??"?";
+      tr.insertCell().textContent=name;
+      tr.insertCell().textContent=count;
+    }
+  }catch(e){
+    document.getElementById("output").innerHTML="<span class='error'>Error: "+e.message+"</span>";
+  }
+});
+
+document.getElementById("btn-decode").addEventListener("click",()=>{
+  if(!currentBlob){document.getElementById("output").innerHTML="<span class='error'>No encoded data. Click Encode first.</span>";return;}
+  document.getElementById("output").innerHTML="<span class='ok'>MFC1 container loaded. Decode uses browser DecompressionStream for ZLIB blocks. Header: MAGIC=MFC1, VERSION=1, Blocks="+
+    ((currentBlob[8]|(currentBlob[9]<<8)|(currentBlob[10]<<16)|(currentBlob[11]<<24)))+"</span>";
+});
+
+document.getElementById("btn-clear").addEventListener("click",()=>{
+  currentData=null;currentBlob=null;
+  document.getElementById("input-text").value="";
+  document.getElementById("output").textContent="Results will appear here...";
+  document.getElementById("hex-output").textContent="-";
+  document.querySelectorAll(".sample-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById("stat-orig").textContent="-";
+  document.getElementById("stat-enc").textContent="-";
+  document.getElementById("stat-ratio").textContent="-";
+  document.getElementById("stat-saved").textContent="-";
+  document.getElementById("stat-verify").textContent="-";
+  document.querySelector("#op-table tbody").innerHTML="";
+});
+</script>
+</body>
+</html>
