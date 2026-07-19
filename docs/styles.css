@@ -331,3 +331,122 @@ footer {
   padding: 1.5rem;
   font-size: 0.9rem;
 }
+
+/* Mini encoder (container anatomy) */
+
+.mini-fieldset {
+  border: none;
+  margin: 0 0 0.85rem;
+  padding: 0;
+}
+
+.mini-fieldset legend {
+  padding: 0;
+  margin-bottom: 0.45rem;
+}
+
+.mini-radio {
+  margin-right: 1.1rem;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.mini-radio input { accent-color: var(--accent); }
+
+.mini-label {
+  display: block;
+  margin: 0.6rem 0 0.35rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.mini-input {
+  width: 100%;
+  resize: vertical;
+  background: #020617;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 0.6rem 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.mini-select {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.3rem 0.5rem;
+  font-size: 0.9rem;
+  margin-left: 0.4rem;
+}
+
+.mini-sub { margin-top: 1.1rem; }
+
+.mini-map {
+  display: flex;
+  height: 2.1rem;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.mini-map .seg {
+  min-width: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #0b1220;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.seg.fh, .key.fh { background: #38bdf8; }
+.seg.bh, .key.bh { background: #fbbf24; }
+.seg.pl, .key.pl { background: #34d399; }
+.seg.pl2, .key.pl2 { background: #6ee7b7; }
+
+.mini-legend .key {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 3px;
+  vertical-align: -0.1rem;
+  margin-right: 0.25rem;
+}
+
+.mini-hex { min-height: 90px; }
+.mini-hex .hx-fh { color: #38bdf8; }
+.mini-hex .hx-bh { color: #fbbf24; }
+.mini-hex .hx-pl { color: #34d399; }
+.mini-hex .hx-pl2 { color: #6ee7b7; }
+
+.cand {
+  display: inline-block;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  margin: 0.1rem 0.25rem 0.1rem 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.cand.win {
+  border-color: var(--ok);
+  color: var(--ok);
+  background: var(--best);
+  font-weight: 700;
+}
+
+.chip:focus-visible,
+.btn:focus-visible,
+.mini-input:focus-visible,
+.mini-select:focus-visible,
+.mini-hex:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

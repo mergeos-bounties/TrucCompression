@@ -113,6 +113,74 @@
       </div>
     </section>
 
+    <section id="mini-encoder" class="playground">
+      <div class="section-head">
+        <h2>Mini encoder — container anatomy</h2>
+        <p id="miniStatus" class="status" aria-live="polite">
+          Type bytes or pick a preset to watch MFC1 encode them live.
+        </p>
+      </div>
+
+      <div class="panel">
+        <h3>1 · Input buffer (up to 512 B)</h3>
+        <fieldset class="mini-fieldset">
+          <legend class="hint">Presets</legend>
+          <div class="samples" role="group" aria-label="Buffer presets">
+            <button type="button" class="chip" data-preset="zeros" title="96 zero bytes — CONST wins">zeros</button>
+            <button type="button" class="chip" data-preset="runs" title="Three long byte runs">runs</button>
+            <button type="button" class="chip" data-preset="pattern" title="ABAB… — REPEAT wins">pattern</button>
+            <button type="button" class="chip" data-preset="ramp" title="Rising bytes — DELTA_ZLIB wins">ramp</button>
+            <button type="button" class="chip" data-preset="text" title="English sentence — ZLIB wins">text</button>
+            <button type="button" class="chip" data-preset="random" title="Random bytes — RAW fallback">random</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="mini-fieldset">
+          <legend class="hint">Interpret input as</legend>
+          <label class="mini-radio"><input type="radio" name="miniMode" value="text" checked /> Text (UTF-8)</label>
+          <label class="mini-radio"><input type="radio" name="miniMode" value="hex" /> Hex bytes</label>
+        </fieldset>
+
+        <label class="mini-label" for="miniInput">Buffer contents</label>
+        <textarea id="miniInput" class="mini-input" rows="4" spellcheck="false"></textarea>
+
+        <label class="mini-label" for="miniBlock">Block size
+          <select id="miniBlock" class="mini-select">
+            <option value="64">64 B</option>
+            <option value="128" selected>128 B</option>
+            <option value="256">256 B</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="panel">
+        <h3>2 · Encoded container</h3>
+        <p id="miniSummary" class="file-meta" aria-live="polite">—</p>
+
+        <div class="table-wrap">
+          <table class="cmp" aria-label="Per-block encoding decisions">
+            <thead>
+              <tr><th>Block</th><th>Bytes</th><th>Winner</th><th>All candidates (stored bytes, header + payload)</th></tr>
+            </thead>
+            <tbody id="miniBlocks">
+              <tr><td colspan="4" class="muted">Encoding…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="mini-sub">Byte map</h3>
+        <div id="miniMap" class="mini-map" role="img" aria-label="Container byte map"></div>
+        <p class="hint mini-legend">
+          <span class="key fh"></span> file header (53 B) ·
+          <span class="key bh"></span> block header (9 B each) ·
+          <span class="key pl"></span><span class="key pl2"></span> block payloads
+        </p>
+
+        <h3 class="mini-sub">Container hex</h3>
+        <pre id="miniHex" class="ops mini-hex" tabindex="0" aria-label="Container bytes in hexadecimal, colored by region"></pre>
+      </div>
+    </section>
+
     <section>
       <h2>What you are comparing</h2>
       <div class="grid">
@@ -194,5 +262,6 @@ truccompression decompress out.mfc restored.bin</code></pre>
 
   <script src="mfc.js"></script>
   <script src="app.js"></script>
+  <script src="mini.js"></script>
 </body>
 </html>
