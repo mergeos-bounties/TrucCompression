@@ -37,6 +37,7 @@ OP_BZ2 = 5
 OP_LZMA = 6
 OP_DELTA_ZLIB = 7
 OP_XOR_ZLIB = 8
+OP_RLE = 9
 
 OP_NAMES = {
     OP_RAW: "RAW",
@@ -48,6 +49,7 @@ OP_NAMES = {
     OP_LZMA: "LZMA",
     OP_DELTA_ZLIB: "DELTA_ZLIB",
     OP_XOR_ZLIB: "XOR_ZLIB",
+    OP_RLE: "RLE",
 }
 
 # Per-block record:
@@ -133,6 +135,60 @@ def xor_decode(encoded: bytes) -> bytes:
     return bytes(out)
 
 
+def rle_encode(block: bytes) -> bytes:
+    """Run-length encode a byte string.
+
+    Payload format: sequence of (byte: uint8, count: uint16) pairs.
+    Runs longer than 65535 are split into multiple pairs.
+    Smallest run: 1 byte encodes as 3 bytes — only beneficial when
+    runs exceed 3 identical bytes.
+    """
+    if not block:
+        return b""
+    payload = bytearray()
+    i = 0
+    n = len(block)
+    while i < n:
+        b = block[i]
+        j = i + 1
+        while j < n and block[j] == b:
+            j += 1
+        run_len = j - i
+        
+        # Split runs longer than 65535 into multiple chunks
+        while run_len > 0:
+            chunk_len = min(run_len, 65535)
+            payload.append(b)                    # byte value
+            payload.extend(struct.pack("<H", chunk_len))  # run length
+            run_len -= chunk_len
+        
+        i = j
+    return bytes(payload)
+
+
+def rle_decode(payload: bytes, original_size: int) -> bytes:
+    """Decode RLE payload back to original bytes."""
+    out = bytearray(original_size)
+    pos = 0
+    idx = 0
+    while idx < len(payload):
+        if idx + 3 > len(payload):
+            raise CodecError("Truncated RLE payload")
+        b = payload[idx]
+        run_len = struct.unpack("<H", payload[idx + 1:idx + 3])[0]
+        idx += 3
+        end = pos + run_len
+        if end > original_size:
+            raise CodecError("RLE payload exceeds original_size")
+        out[pos:end] = bytes([b]) * run_len
+        pos = end
+    if pos != original_size:
+        raise CodecError(
+            f"RLE decoded size mismatch: expected {original_size}, got {pos}"
+        )
+    return bytes(out)
+
+
 def encode_block(block: bytes, previous: bytes | None, fast: bool = False) -> Candidate:
     candidates: list[Candidate] = [Candidate(OP_RAW, block)]
 
@@ -168,6 +224,13 @@ def encode_block(block: bytes, previous: bytes | None, fast: bool = False) -> Ca
     xz = zlib.compress(xor_encode(block), level=9)
     candidates.append(Candidate(OP_XOR_ZLIB, xz))
 
+    rle_payload = rle_encode(block)
+    # Only use RLE if it's actually smaller than raw
+    if rle_payload:
+        rle_candidate = Candidate(OP_RLE, rle_payload)
+        if rle_candidate.stored_size < len(block):
+            candidates.append(rle_candidate)
+
     return min(candidates, key=lambda c: c.stored_size)
 
 
@@ -200,6 +263,8 @@ def decode_block(opcode: int, payload: bytes, original_size: int, previous: byte
         out = delta_decode(zlib.decompress(payload))
     elif opcode == OP_XOR_ZLIB:
         out = xor_decode(zlib.decompress(payload))
+    elif opcode == OP_RLE:
+        out = rle_decode(payload, original_size)
     else:
         raise CodecError(f"Unknown opcode: {opcode}")
 
