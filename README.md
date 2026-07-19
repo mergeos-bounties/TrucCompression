@@ -24,14 +24,18 @@ Sample files also live under `docs/samples/` and `data/samples/` for CLI testing
 
 ## Highlights
 
-| Area | Detail |
-| --- | --- |
-| Format | `MFC1` container, versioned header + block records |
-| Integrity | SHA-256 of original payload verified on decompress |
-| CLI | `version`, `demo`, `compress`, `decompress`, `info`, `bench` |
-| Pages | Interactive compress / restore / compare + fixtures |
-| Offline | Demo and unit tests need no network |
-| Honesty | High-entropy / already-compressed data may grow (RAW fallback) |
+|| Area | Detail |
+| --- | --- | --- |
+|| Format | `MFC1` container, versioned header + block records |
+|| Integrity | SHA-256 of original payload verified on decompress |
+|| CLI | `version`, `demo`, `compress`, `decompress`, `info`, `bench` |
+|| Pages | Interactive compress / restore / compare + fixtures |
+|| Offline | Demo and unit tests need no network |
+|| Honesty | High-entropy / already-compressed data may grow (RAW fallback) |
+
+## Documentation
+
+See [docs/diagrams/mfc-layout.svg](./docs/diagrams/mfc-layout.svg) for a visual overview of the MFC1 file format structure.
 
 ## Quick start
 
