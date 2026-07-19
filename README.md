@@ -88,6 +88,10 @@ assert data == b"AAAA" * 1000 and verify["verified"]
 | `DELTA_ZLIB` / `XOR_ZLIB` | Correlated sequences after transform |
 | `RAW` | Cheapest when nothing compresses |
 
+## Format diagrams
+
+[MFC Container Layout](docs/diagrams/mfc-layout.html) — File header + block record structure.
+
 ## Repository layout
 
 ```text

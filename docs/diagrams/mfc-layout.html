@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { color: #00ff88; text-align: center; }
+  .section { margin: 30px 0; }
+  .section h2 { color: #00aaff; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #333; padding: 10px; text-align: left; }
+  th { background: #16213e; color: #00ff88; }
+  td { background: #0f3460; }
+  .field { color: #ff9900; font-weight: bold; }
+  .size { color: #00aaff; }
+  .offset { color: #888; }
+  .description { color: #ccc; }
+  .visual { background: #16213e; padding: 15px; border-radius: 5px; margin: 10px 0; }
+  .byte { display: inline-block; padding: 5px 10px; margin: 2px; background: #0f3460; border: 1px solid #333; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>MFC File Format Architecture</h1>
+  
+  <div class="section">
+    <h2>File Header (53 bytes)</h2>
+    <div class="visual">
+      <span class="byte">MAGIC<br/>[4]</span>
+      <span class="byte">VERSION<br/>[1]</span>
+      <span class="byte">BLOCK_SIZE<br/>[4]</span>
+      <span class="byte">BLOCK_COUNT<br/>[4]</span>
+      <span class="byte">ORIGINAL_SIZE<br/>[8]</span>
+      <span class="byte">SHA256<br/>[32]</span>
+    </div>
+    <table>
+      <tr><th>Field</th><th>Offset</th><th>Size</th><th>Type</th><th>Description</th></tr>
+      <tr><td class="field">magic</td><td class="offset">0</td><td class="size">4 bytes</td><td>bytes</td><td class="description">Magic number: <code>b"MFC1"</code></td></tr>
+      <tr><td class="field">version</td><td class="offset">4</td><td class="size">1 byte</td><td>uint8</td><td class="description">Format version (currently 1)</td></tr>
+      <tr><td class="field">block_size</td><td class="offset">5</td><td class="size">4 bytes</td><td>uint32</td><td class="description">Size of each data block in bytes</td></tr>
+      <tr><td class="field">block_count</td><td class="offset">9</td><td class="size">4 bytes</td><td>uint32</td><td class="description">Total number of blocks</td></tr>
+      <tr><td class="field">original_size</td><td class="offset">13</td><td class="size">8 bytes</td><td>uint64</td><td class="description">Uncompressed file size</td></tr>
+      <tr><td class="field">sha256</td><td class="offset">21</td><td class="size">32 bytes</td><td>bytes</td><td class="description">SHA-256 hash of original data</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Block Header (9 bytes) × N</h2>
+    <div class="visual">
+      <span class="byte">OPCODE<br/>[1]</span>
+      <span class="byte">ORIGINAL_SIZE<br/>[4]</span>
+      <span class="byte">PAYLOAD_SIZE<br/>[4]</span>
+    </div>
+    <table>
+      <tr><th>Field</th><th>Offset</th><th>Size</th><th>Type</th><th>Description</th></tr>
+      <tr><td class="field">opcode</td><td class="offset">0</td><td class="size">1 byte</td><td>uint8</td><td class="description">Compression operation code</td></tr>
+      <tr><td class="field">original_size</td><td class="offset">1</td><td class="size">4 bytes</td><td>uint32</td><td class="description">Uncompressed block size</td></tr>
+      <tr><td class="field">payload_size</td><td class="offset">5</td><td class="size">4 bytes</td><td>uint32</td><td class="description">Compressed payload length</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Supported Opcodes</h2>
+    <table>
+      <tr><th>Code</th><th>Name</th><th>Description</th></tr>
+      <tr><td>0</td><td>RAW</td><td>Uncompressed data</td></tr>
+      <tr><td>1</td><td>CONST</td><td>Constant byte pattern</td></tr>
+      <tr><td>2</td><td>REPEAT</td><td>Repeating pattern</td></tr>
+      <tr><td>3</td><td>COPY_PREVIOUS</td><td>Duplicate of previous block</td></tr>
+      <tr><td>4</td><td>ZLIB</td><td>Zlib compression</td></tr>
+      <tr><td>5</td><td>BZ2</td><td>Bzip2 compression</td></tr>
+      <tr><td>6</td><td>LZMA</td><td>LZMA compression</td></tr>
+      <tr><td>7</td><td>DELTA_ZLIB</td><td>Delta + Zlib</td></tr>
+      <tr><td>8</td><td>XOR_ZLIB</td><td>XOR + Zlib</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Complete Layout</h2>
+    <div class="visual">
+      [ FILE HEADER (53 bytes) ]<br/>
+      ├── BLOCK 0 [9-byte header + payload]<br/>
+      ├── BLOCK 1 [9-byte header + payload]<br/>
+      ├── BLOCK 2 [9-byte header + payload]<br/>
+      └── BLOCK N [9-byte header + payload]<br/>
+    </div>
+  </div>
+</div>
+</body>
+</html>
