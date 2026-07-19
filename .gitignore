@@ -19,4 +19,5 @@ Thumbs.db
 uv.lock
 
 !data/samples/*.bin
+!docs/samples/*.bin
 
