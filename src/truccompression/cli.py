@@ -15,6 +15,9 @@ from truccompression import __version__
 from truccompression.codec import (
     CodecError,
     OP_NAMES,
+    FILE_HEADER,
+    MAGIC,
+    VERSION,
     compress_bytes,
     decompress_bytes,
     human_size,
@@ -86,13 +89,36 @@ def compress_cmd(
     block_size: int = typer.Option(262_144, help="Block size in bytes"),
     fast: bool = typer.Option(False, help="Skip slow LZMA candidate"),
     verify: bool = typer.Option(False, help="Round-trip verify after compress"),
+    json_report: Optional[Path] = typer.Option(None, help="Export compression report to JSON file"),
 ) -> None:
     """Compress a file to MFC format."""
     data = input.read_bytes()
-    t0 = time.perf_counter()
-    blob, report = compress_bytes(data, block_size=block_size, fast=fast)
-    elapsed = time.perf_counter() - t0
+    
+    # Progress bar setup
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn
+
+    def progress_callback(block_index: int, block_size: int):
+        # Update progress by block size (bytes processed)
+        progress.update(task_id, advance=block_size)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        transient=True,
+    ) as progress:
+        task_id = progress.add_task("Compressing...", total=len(data))
+        t0 = time.perf_counter()
+        blob, report = compress_bytes(data, block_size=block_size, fast=fast,
+                                      progress_callback=progress_callback)
+        elapsed = time.perf_counter() - t0
+        # Ensure progress is complete
+        progress.update(task_id, completed=len(data))
+
     output.write_bytes(blob)
+
     console.print(f"Input       : {input}")
     console.print(f"Output      : {output}")
     console.print(f"Original    : {human_size(report['original_size'])}")
@@ -103,6 +129,12 @@ def compress_cmd(
     console.print(f"Operations  : {json.dumps(report['operations'], ensure_ascii=False)}")
     console.print(f"SHA-256     : {report['sha256']}")
     console.print(f"Time        : {elapsed:.3f} s")
+    
+    # Export JSON report if requested
+    if json_report:
+        json_report.write_text(json.dumps(report, indent=2, ensure_ascii=False))
+        console.print(f"JSON report : {json_report}")
+    
     if verify:
         restored, _ = decompress_bytes(blob)
         if restored != data:
@@ -117,10 +149,41 @@ def decompress_cmd(
 ) -> None:
     """Decompress an MFC file."""
     blob = input.read_bytes()
-    t0 = time.perf_counter()
-    data, report = decompress_bytes(blob)
-    elapsed = time.perf_counter() - t0
+
+    # Progress bar setup
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn
+
+    def progress_callback(block_index: int, block_size: int):
+        # Update progress by block size (bytes processed)
+        progress.update(task_id, advance=block_size)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        transient=True,
+    ) as progress:
+        # Read the header first to get the original size
+        if len(blob) < FILE_HEADER.size:
+            raise CodecError("File is too short")
+        magic, version, block_size, block_count, original_size, expected_hash = FILE_HEADER.unpack(
+            blob[:FILE_HEADER.size]
+        )
+        if magic != MAGIC:
+            raise CodecError("Not an MFC file")
+        if version != VERSION:
+            raise CodecError(f"Unsupported MFC version: {version}")
+
+        task_id = progress.add_task("Decompressing...", total=original_size)
+        t0 = time.perf_counter()
+        data, report = decompress_bytes(blob, progress_callback=progress_callback)
+        elapsed = time.perf_counter() - t0
+        progress.update(task_id, completed=original_size)
+
     output.write_bytes(data)
+
     console.print(f"Input       : {input}")
     console.print(f"Output      : {output}")
     console.print(f"Restored    : {human_size(len(data))}")

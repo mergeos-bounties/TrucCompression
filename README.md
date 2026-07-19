@@ -7,7 +7,7 @@
 [![MergeOS](https://img.shields.io/badge/MergeOS-bounties-5319E7.svg)](https://github.com/mergeos-bounties)
 [![Pages](https://img.shields.io/badge/docs-GitHub%20Pages-222.svg)](https://mergeos-bounties.github.io/TrucCompression/)
 
-**TrucCompression** is a public MergeOS product for **lossless experimental data compression**. It implements the **Math Formula Codec (MFC1)** container: each file is encoded as a sequence of reversible block “formulas” (CONST, REPEAT, COPY_PREVIOUS, ZLIB, BZ2, LZMA, DELTA+ZLIB, XOR+ZLIB, or RAW). The encoder scores candidates per block and keeps the smallest payload. Round-trips are **byte-for-byte** with a SHA-256 seal in the header.
+**TrucCompression** is a public MergeOS product for **lossless experimental data compression**. It implements the **Math Formula Codec (MFC1)** container: each file is encoded as a sequence of reversible block “formulas” (CONST, REPEAT, COPY_PREVIOUS, RLE, ZLIB, BZ2, LZMA, DELTA+ZLIB, XOR+ZLIB, or RAW). The encoder scores candidates per block and keeps the smallest payload. Round-trips are **byte-for-byte** with a SHA-256 seal in the header.
 
 Product site: [mergeos-bounties.github.io/TrucCompression](https://mergeos-bounties.github.io/TrucCompression/) · Source: [github.com/mergeos-bounties/TrucCompression](https://github.com/mergeos-bounties/TrucCompression)
 
@@ -24,14 +24,18 @@ Sample files also live under `docs/samples/` and `data/samples/` for CLI testing
 
 ## Highlights
 
-| Area | Detail |
-| --- | --- |
-| Format | `MFC1` container, versioned header + block records |
-| Integrity | SHA-256 of original payload verified on decompress |
-| CLI | `version`, `demo`, `compress`, `decompress`, `info`, `bench` |
-| Pages | Interactive compress / restore / compare + fixtures |
-| Offline | Demo and unit tests need no network |
-| Honesty | High-entropy / already-compressed data may grow (RAW fallback) |
+|| Area | Detail |
+| --- | --- | --- |
+|| Format | `MFC1` container, versioned header + block records |
+|| Integrity | SHA-256 of original payload verified on decompress |
+|| CLI | `version`, `demo`, `compress`, `decompress`, `info`, `bench` |
+|| Pages | Interactive compress / restore / compare + fixtures |
+|| Offline | Demo and unit tests need no network |
+|| Honesty | High-entropy / already-compressed data may grow (RAW fallback) |
+
+## Documentation
+
+See [docs/diagrams/mfc-layout.svg](./docs/diagrams/mfc-layout.svg) for a visual overview of the MFC1 file format structure.
 
 ## Quick start
 
@@ -86,6 +90,7 @@ assert data == b"AAAA" * 1000 and verify["verified"]
 | `COPY_PREVIOUS` | Block equals previous block |
 | `ZLIB` / `BZ2` / `LZMA` | General entropy coding |
 | `DELTA_ZLIB` / `XOR_ZLIB` | Correlated sequences after transform |
+| `RLE` | Long runs of identical bytes (run-length encoding) |
 | `RAW` | Cheapest when nothing compresses |
 
 ## Repository layout

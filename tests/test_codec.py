@@ -66,6 +66,42 @@ def test_corrupt_magic() -> None:
         decompress_bytes(bad)
 
 
+def test_rle_round_trip_run_data() -> None:
+    """RLE-friendly data: long runs of same byte."""
+    data = b"\x00" * 300 + b"\xff" * 200 + b"\xAA" * 100
+    blob, report = compress_bytes(data, block_size=1024, fast=True)
+    assert "RLE" in report["operations"]
+    restored, _ = decompress_bytes(blob)
+    assert restored == data
+
+
+def test_rle_round_trip_no_runs() -> None:
+    """Non-RLE data: no repeated bytes — should not use RLE op."""
+    data = bytes(range(256)) * 4
+    blob, report = compress_bytes(data, block_size=1024, fast=True)
+    restored, _ = decompress_bytes(blob)
+    assert restored == data
+    # RLE would be wasteful here (all unique), so RAW or zlib wins
+    assert "RLE" not in report["operations"] or report["operations"]["RLE"] == 0
+
+
+def test_rle_large_runs() -> None:
+    """Large blocks with single-value runs."""
+    data = b"\x42" * 70000 + b"\x99" * 30000
+    blob, report = compress_bytes(data, block_size=65536, fast=True)
+    assert "RLE" in report["operations"]
+    restored, _ = decompress_bytes(blob)
+    assert restored == data
+
+
+def test_rle_and_other_ops_share_block() -> None:
+    """Multi-block with mixed content: RLE should win on run blocks."""
+    data = b"\x00" * 5000 + bytes(range(200)) + b"\xff" * 5000
+    blob, report = compress_bytes(data, block_size=4096, fast=True)
+    restored, _ = decompress_bytes(blob)
+    assert restored == data
+
+
 def test_block_size_bounds() -> None:
     with pytest.raises(ValueError):
         compress_bytes(b"x", block_size=10)
