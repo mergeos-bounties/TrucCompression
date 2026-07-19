@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TrucCompression — MFC lossless compressor</title>
+  <meta name="description" content="TrucCompression: experimental lossless formula-list binary compressor (MFC1) with offline CLI and MergeOS bounties." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <p class="eyebrow">mergeos-bounties · open source</p>
+    <h1>TrucCompression</h1>
+    <p class="lead">
+      Lossless experimental <strong>Math Formula Codec (MFC1)</strong> — a block
+      instruction compressor that picks the cheapest reversible transform per
+      block: CONST, REPEAT, COPY, ZLIB, BZ2, LZMA, DELTA+ZLIB, XOR+ZLIB, or RAW.
+    </p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/mergeos-bounties/TrucCompression">GitHub</a>
+      <a class="btn" href="https://github.com/mergeos-bounties/TrucCompression#quick-start">Quick start</a>
+      <a class="btn" href="https://github.com/mergeos-bounties/TrucCompression/issues?q=is%3Aissue+is%3Aopen+label%3Abounty">Bounties</a>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Why MFC?</h2>
+      <p>
+        Classic codecs apply one algorithm to the whole stream. MFC frames the
+        file as a <em>list of formulas</em> (block ops). Each block is scored and
+        the smallest reversible payload wins. Round-trip is always
+        byte-for-byte verified with SHA-256 in the container header.
+      </p>
+    </section>
+
+    <section>
+      <h2>Block operations</h2>
+      <div class="grid">
+        <article><h3>CONST / REPEAT</h3><p>Uniform bytes and tiled patterns store as tiny payloads.</p></article>
+        <article><h3>COPY_PREVIOUS</h3><p>Identical consecutive blocks store as a reference only.</p></article>
+        <article><h3>ZLIB · BZ2 · LZMA</h3><p>General entropy coding candidates per block.</p></article>
+        <article><h3>DELTA / XOR + ZLIB</h3><p>Predictive transforms for ramps and correlated streams.</p></article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Install &amp; demo</h2>
+      <pre><code>git clone https://github.com/mergeos-bounties/TrucCompression.git
+cd TrucCompression
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+truccompression version
+truccompression demo
+truccompression compress input.bin out.mfc --verify
+truccompression decompress out.mfc restored.bin</code></pre>
+    </section>
+
+    <section>
+      <h2>Honest limits</h2>
+      <ul>
+        <li>Already-compressed / high-entropy data may grow (RAW fallback).</li>
+        <li>Experimental format — not a replacement for zip/zstd in production yet.</li>
+        <li>No secrets in fixtures; offline demo needs no network.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>MergeOS bounties</h2>
+      <p>
+        Star core MergeOS repos, claim a bounty issue, open a PR against
+        <code>master</code>, pass CI → maintainer merge + MRG credit (25–200).
+      </p>
+      <a class="btn primary" href="https://github.com/mergeos-bounties/TrucCompression/issues">View issues</a>
+    </section>
+  </main>
+
+  <footer>
+    <p>MIT · ThanhTrucSolutions / MergeOS · <a href="https://mergeos.shop">mergeos.shop</a></p>
+  </footer>
+</body>
+</html>

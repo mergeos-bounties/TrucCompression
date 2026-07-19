@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "truccompression"
+version = "0.1.0"
+description = "Lossless experimental formula-list binary compressor (MFC) — TrucCompression"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "MergeOS / ThanhTrucSolutions" }]
+keywords = ["compression", "codec", "mfc", "lossless", "zlib", "lzma"]
+dependencies = [
+  "typer>=0.12",
+  "rich>=13.7",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.4",
+]
+
+[project.scripts]
+truccompression = "truccompression.cli:main"
+mfc = "truccompression.cli:main"
+
+[project.urls]
+Homepage = "https://mergeos-bounties.github.io/TrucCompression/"
+Repository = "https://github.com/mergeos-bounties/TrucCompression"
+Issues = "https://github.com/mergeos-bounties/TrucCompression/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
