@@ -37,6 +37,7 @@ OP_BZ2 = 5
 OP_LZMA = 6
 OP_DELTA_ZLIB = 7
 OP_XOR_ZLIB = 8
+OP_RLE = 9
 
 OP_NAMES = {
     OP_RAW: "RAW",
@@ -48,6 +49,7 @@ OP_NAMES = {
     OP_LZMA: "LZMA",
     OP_DELTA_ZLIB: "DELTA_ZLIB",
     OP_XOR_ZLIB: "XOR_ZLIB",
+    OP_RLE: "RLE",
 }
 
 # Per-block record:
@@ -133,6 +135,38 @@ def xor_decode(encoded: bytes) -> bytes:
     return bytes(out)
 
 
+
+def rle_encode(block: bytes) -> bytes:
+    """Run-length encode a block. Payload format: repeated (count: uint16, value: byte) pairs."""
+    if not block:
+        return b""
+    out = bytearray()
+    i = 0
+    n = len(block)
+    while i < n:
+        val = block[i]
+        count = 1
+        while i + count < n and block[i + count] == val and count < 65535:
+            count += 1
+        out.extend(struct.pack("<H", count))
+        out.append(val)
+        i += count
+    return bytes(out)
+
+
+def rle_decode(payload: bytes, original_size: int) -> bytes:
+    """Decode RLE payload back to original bytes."""
+    out = bytearray()
+    i = 0
+    while i < len(payload) and len(out) < original_size:
+        if i + 3 > len(payload):
+            break
+        count = struct.unpack("<H", payload[i:i + 2])[0]
+        val = payload[i + 2]
+        out.extend(bytes([val]) * count)
+        i += 3
+    return bytes(out)
+
 def encode_block(block: bytes, previous: bytes | None, fast: bool = False) -> Candidate:
     candidates: list[Candidate] = [Candidate(OP_RAW, block)]
 
@@ -143,6 +177,10 @@ def encode_block(block: bytes, previous: bytes | None, fast: bool = False) -> Ca
     if pattern is not None:
         # Payload: uint16 pattern length + pattern bytes
         candidates.append(Candidate(OP_REPEAT, struct.pack("<H", len(pattern)) + pattern))
+
+    rle_payload = rle_encode(block)
+    if len(rle_payload) > 0 and len(rle_payload) + BLOCK_HEADER.size < len(block) + BLOCK_HEADER.size:
+        candidates.append(Candidate(OP_RLE, rle_payload))
 
     if previous is not None and block == previous:
         candidates.append(Candidate(OP_COPY_PREVIOUS, b""))
@@ -200,6 +238,8 @@ def decode_block(opcode: int, payload: bytes, original_size: int, previous: byte
         out = delta_decode(zlib.decompress(payload))
     elif opcode == OP_XOR_ZLIB:
         out = xor_decode(zlib.decompress(payload))
+    elif opcode == OP_RLE:
+        out = rle_decode(payload, original_size)
     else:
         raise CodecError(f"Unknown opcode: {opcode}")
 
