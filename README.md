@@ -11,6 +11,17 @@
 
 Product site: [mergeos-bounties.github.io/TrucCompression](https://mergeos-bounties.github.io/TrucCompression/) · Source: [github.com/mergeos-bounties/TrucCompression](https://github.com/mergeos-bounties/TrucCompression)
 
+## Live playground (GitHub Pages)
+
+Open **[mergeos-bounties.github.io/TrucCompression](https://mergeos-bounties.github.io/TrucCompression/)** to:
+
+1. Load a **sample fixture** (zeros, const, repeat, text, ramp, noise, WAV tone, PNG) or drop your own file  
+2. **Compress** with browser MFC1 and **restore** with SHA-256 verify  
+3. **Compare** size / ratio / time against **Gzip** and **Deflate/zlib** (`CompressionStream`)  
+4. Download `.mfc` and restored bytes — all client-side, nothing uploaded  
+
+Sample files also live under `docs/samples/` and `data/samples/` for CLI testing.
+
 ## Highlights
 
 | Area | Detail |
@@ -18,6 +29,7 @@ Product site: [mergeos-bounties.github.io/TrucCompression](https://mergeos-bount
 | Format | `MFC1` container, versioned header + block records |
 | Integrity | SHA-256 of original payload verified on decompress |
 | CLI | `version`, `demo`, `compress`, `decompress`, `info`, `bench` |
+| Pages | Interactive compress / restore / compare + fixtures |
 | Offline | Demo and unit tests need no network |
 | Honesty | High-entropy / already-compressed data may grow (RAW fallback) |
 
