@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 TrucCompression MFC (Math Formula Codec) — lossless experimental binary compressor.
@@ -22,7 +21,7 @@ import time
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable, Optional
 
 MAGIC = b"MFC1"
 VERSION = 1
@@ -275,7 +274,8 @@ def decode_block(opcode: int, payload: bytes, original_size: int, previous: byte
     return out
 
 
-def compress_bytes(data: bytes, block_size: int = 262_144, fast: bool = False) -> tuple[bytes, dict]:
+def compress_bytes(data: bytes, block_size: int = 262_144, fast: bool = False,
+                   progress_callback: Optional[Callable[[int, int], None]] = None) -> tuple[bytes, dict]:
     if block_size < 64 or block_size > 16 * 1024 * 1024:
         raise ValueError("block_size must be between 64 B and 16 MiB")
 
@@ -283,12 +283,14 @@ def compress_bytes(data: bytes, block_size: int = 262_144, fast: bool = False) -
     stats: dict[str, int] = {}
     previous: bytes | None = None
 
-    for block in chunks(data, block_size):
+    for i, block in enumerate(chunks(data, block_size)):
         candidate = encode_block(block, previous, fast=fast)
         encoded_blocks.append((candidate, len(block)))
         name = OP_NAMES[candidate.opcode]
         stats[name] = stats.get(name, 0) + 1
         previous = block
+        if progress_callback is not None:
+            progress_callback(i, len(block))
 
     digest = hashlib.sha256(data).digest()
     header = FILE_HEADER.pack(
@@ -319,7 +321,8 @@ def compress_bytes(data: bytes, block_size: int = 262_144, fast: bool = False) -
     return bytes(out), report
 
 
-def decompress_bytes(blob: bytes) -> tuple[bytes, dict]:
+def decompress_bytes(blob: bytes,
+                     progress_callback: Optional[Callable[[int, int], None]] = None) -> tuple[bytes, dict]:
     if len(blob) < FILE_HEADER.size:
         raise CodecError("File is too short")
 
@@ -355,6 +358,8 @@ def decompress_bytes(blob: bytes) -> tuple[bytes, dict]:
         previous = block
         name = OP_NAMES.get(opcode, f"UNKNOWN_{opcode}")
         stats[name] = stats.get(name, 0) + 1
+        if progress_callback is not None:
+            progress_callback(index, raw_size)
 
     if offset != len(blob):
         raise CodecError(f"Unexpected trailing data: {len(blob) - offset} bytes")
@@ -395,9 +400,29 @@ def cmd_compress(args: argparse.Namespace) -> int:
     dst = Path(args.output)
     data = src.read_bytes()
 
-    t0 = time.perf_counter()
-    blob, report = compress_bytes(data, block_size=args.block_size, fast=args.fast)
-    elapsed = time.perf_counter() - t0
+    # Progress bar setup
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn
+
+    def progress_callback(block_index: int, block_size: int):
+        # Update progress by block size (bytes processed)
+        progress.update(task_id, advance=block_size)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        transient=True,
+    ) as progress:
+        task_id = progress.add_task("Compressing...", total=len(data))
+        t0 = time.perf_counter()
+        blob, report = compress_bytes(data, block_size=args.block_size, fast=args.fast,
+                                      progress_callback=progress_callback)
+        elapsed = time.perf_counter() - t0
+        # Ensure progress is complete
+        progress.update(task_id, completed=len(data))
+
     dst.write_bytes(blob)
 
     print(f"Input       : {src}")
@@ -424,9 +449,40 @@ def cmd_decompress(args: argparse.Namespace) -> int:
     dst = Path(args.output)
     blob = src.read_bytes()
 
-    t0 = time.perf_counter()
-    data, report = decompress_bytes(blob)
-    elapsed = time.perf_counter() - t0
+    # Progress bar setup
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn
+
+    def progress_callback(block_index: int, block_size: int):
+        # Update progress by block size (bytes processed)
+        progress.update(task_id, advance=block_size)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        transient=True,
+    ) as progress:
+        # We don't know the total size until we read the header, but we can set it after reading the header
+        # However, we need to start the progress bar before decompressing.
+        # Let's read the header first to get the original size.
+        if len(blob) < FILE_HEADER.size:
+            raise CodecError("File is too short")
+        magic, version, block_size, block_count, original_size, expected_hash = FILE_HEADER.unpack(
+            blob[:FILE_HEADER.size]
+        )
+        if magic != MAGIC:
+            raise CodecError("Not an MFC file")
+        if version != VERSION:
+            raise CodecError(f"Unsupported MFC version: {version}")
+
+        task_id = progress.add_task("Decompressing...", total=original_size)
+        t0 = time.perf_counter()
+        data, report = decompress_bytes(blob, progress_callback=progress_callback)
+        elapsed = time.perf_counter() - t0
+        progress.update(task_id, completed=original_size)
+
     dst.write_bytes(data)
 
     print(f"Input       : {src}")
