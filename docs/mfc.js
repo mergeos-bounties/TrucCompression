@@ -171,7 +171,7 @@
     return true;
   }
 
-  async function encodeBlock(block, previous) {
+  async function encodeBlockCandidates(block, previous) {
     const candidates = [{ opcode: OP.RAW, payload: block }];
 
     if (block.length && block.every((b) => b === block[0])) {
@@ -204,6 +204,11 @@
       /* CompressionStream missing — RAW only */
     }
 
+    return candidates;
+  }
+
+  async function encodeBlock(block, previous) {
+    const candidates = await encodeBlockCandidates(block, previous);
     let best = candidates[0];
     let bestSize = 9 + best.payload.length;
     for (const c of candidates) {
@@ -365,6 +370,9 @@
   global.MFC = {
     OP,
     OP_NAMES,
+    FILE_HEADER_SIZE: 53,
+    BLOCK_HEADER_SIZE: 9,
+    encodeBlockCandidates,
     compressBytes,
     decompressBytes,
     gzipBytes,
