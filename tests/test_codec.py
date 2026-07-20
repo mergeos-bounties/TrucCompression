@@ -69,3 +69,47 @@ def test_corrupt_magic() -> None:
 def test_block_size_bounds() -> None:
     with pytest.raises(ValueError):
         compress_bytes(b"x", block_size=10)
+
+
+def test_fixture_pack_roundtrip_and_ratio() -> None:
+    """Load the 5 corpus samples from data/samples/, compress with fast=True,
+    verify round-trip, and assert expected compression ratio bounds."""
+    from pathlib import Path
+
+    samples_dir = Path(__file__).parent.parent / "data" / "samples"
+    fixtures = {
+        "zeros.bin": {"max_ratio": 0.10},      # ~0.0835 observed
+        "const.bin": {"max_ratio": 0.12},      # ~0.0967 observed
+        "repeat.bin": {"max_ratio": 0.12},     # ~0.0981 observed
+        "ramp.bin": {"max_ratio": 0.25},       # ~0.1899 observed
+        "text.bin": {"max_ratio": 0.35},       # ~0.2673 observed
+    }
+
+    for fname, bounds in fixtures.items():
+        path = samples_dir / fname
+        assert path.exists(), f"Missing fixture: {path}"
+        data = path.read_bytes()
+        blob, report = compress_bytes(data, block_size=128, fast=True)
+        restored, verify = decompress_bytes(blob)
+
+        # Round-trip
+        assert restored == data, f"{fname}: round-trip failed"
+        assert verify["verified"] is True, f"{fname}: verification failed"
+        assert report["sha256"] == verify["sha256"], f"{fname}: hash mismatch"
+
+        # Ratio bound
+        ratio = report["compressed_size"] / report["original_size"]
+        assert ratio <= bounds["max_ratio"], (
+            f"{fname}: ratio {ratio:.4f} exceeds bound {bounds['max_ratio']:.2f}"
+        )
+
+        # Sanity: known good ops present for well-compressed fixtures
+        ops = report["operations"]
+        if fname in {"zeros.bin", "const.bin"}:
+            assert "CONST" in ops, f"{fname}: expected CONST op"
+        if fname == "repeat.bin":
+            assert "REPEAT" in ops, f"{fname}: expected REPEAT op"
+        if fname == "ramp.bin":
+            assert "DELTA_ZLIB" in ops, f"{fname}: expected DELTA_ZLIB op"
+        if fname == "text.bin":
+            assert "ZLIB" in ops, f"{fname}: expected ZLIB op"
