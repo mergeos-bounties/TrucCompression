@@ -86,6 +86,7 @@ def compress_cmd(
     block_size: int = typer.Option(262_144, help="Block size in bytes"),
     fast: bool = typer.Option(False, help="Skip slow LZMA candidate"),
     verify: bool = typer.Option(False, help="Round-trip verify after compress"),
+    json_report: Optional[Path] = typer.Option(None, "--json-report", help="Write compression report as JSON to this path"),
 ) -> None:
     """Compress a file to MFC format."""
     data = input.read_bytes()
